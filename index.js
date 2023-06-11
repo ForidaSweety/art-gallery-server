@@ -32,9 +32,18 @@ async function run() {
         // Connect the client to the server	(optional starting in v4.7)
         //await client.connect();
 
+        const usersCollection = client.db('artGallery').collection('users');
         const classesCollection = client.db('artGallery').collection('classes');
         const instructorCollection = client.db('artGallery').collection('instructor');
         const cartCollection = client.db('artGallery').collection('carts');
+
+
+     //create user  
+     app.post('/users', async (req, res) => {
+        const user = req.body;
+        const result = await usersCollection.insertOne(user);
+        res.send(result);
+      });
 
 
         ///get all the classes info
