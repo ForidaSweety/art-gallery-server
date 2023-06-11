@@ -67,7 +67,7 @@ async function run() {
           })
 
 // users API
-        app.get('/users', async (req, res) => {
+        app.get('/users',verifyJWT, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
           });
@@ -85,6 +85,19 @@ async function run() {
         res.send(result);
       });
 
+// check user is admin !
+      app.get('/users/admin/:email', verifyJWT, async (req, res) => {
+        const email = req.params.email;
+  
+        if (req.decoded.email !== email) {
+          res.send({ admin: false })
+        }
+  
+        const query = { email: email }
+        const user = await usersCollection.findOne(query);
+        const result = { admin: user?.role === 'admin' }
+        res.send(result);
+      })
 
       app.patch('/users/admin/:id', async (req, res) => {
         const id = req.params.id;
@@ -126,13 +139,16 @@ async function run() {
         // cart collection
         
      
-        app.get('/carts', async (req, res) => {
+        app.get('/carts',verifyJWT, async (req, res) => {
             const email = req.query.email;
       
             if (!email) {
               res.send([]);
             }
-      
+            const decodedEmail = req.decoded.email;
+            if (email !== decodedEmail) {
+              return res.status(403).send({ error: true, message: 'porviden access' })
+            }
       
             const query = { email: email };
             const result = await cartCollection.find(query).toArray();
