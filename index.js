@@ -58,7 +58,7 @@ async function run() {
 
         // cart collection
         
-        
+     
         app.get('/carts', async (req, res) => {
             const email = req.query.email;
       
@@ -66,7 +66,6 @@ async function run() {
               res.send([]);
             }
       
-           
       
             const query = { email: email };
             const result = await cartCollection.find(query).toArray();
@@ -81,7 +80,13 @@ async function run() {
             res.send(result);
           })
       
-       
+        // delete class from userCart
+        app.delete('/carts/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await cartCollection.deleteOne(query);
+            res.send(result);
+          })
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
