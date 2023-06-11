@@ -33,7 +33,8 @@ async function run() {
         //await client.connect();
 
         const classesCollection = client.db('artGallery').collection('classes');
-       
+        const instructorCollection = client.db('artGallery').collection('instructor');
+        
 
 
         ///get all the classes info
@@ -43,6 +44,14 @@ async function run() {
                 sort: { "num_of_student": -1 }
             }
             const cursor = classesCollection.find(query, options);
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+        //get instructor info
+        app.get('/instructor', async (req, res) => {
+            const query = {};
+            const cursor = instructorCollection.find(query);
             const result = await cursor.toArray();
             res.send(result);
         })
