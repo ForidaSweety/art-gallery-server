@@ -38,6 +38,11 @@ async function run() {
         const cartCollection = client.db('artGallery').collection('carts');
 
 
+// users API
+        app.get('/users', async (req, res) => {
+            const result = await usersCollection.find().toArray();
+            res.send(result);
+          });
      //create user  
      app.post('/users', async (req, res) => {
         const user = req.body;
