@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const app = express();
@@ -56,6 +57,7 @@ async function run() {
         const classesCollection = client.db('artGallery').collection('classes');
         const instructorCollection = client.db('artGallery').collection('instructor');
         const cartCollection = client.db('artGallery').collection('carts');
+        const paymentCollection = client.db("artGallery").collection("payments");
 
 
 
@@ -66,11 +68,24 @@ async function run() {
             res.send({ token })
           })
 
+
+        //  verifyJWT before using verifyAdmin 
+          const verifyAdmin = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== 'admin') {
+              return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+          }
+
 // users API
-        app.get('/users',verifyJWT, async (req, res) => {
+        app.get('/users',verifyJWT,verifyAdmin, async (req, res) => {
             const result = await usersCollection.find().toArray();
             res.send(result);
           });
+
      //create user  
      app.post('/users', async (req, res) => {
         const user = req.body;
@@ -116,7 +131,6 @@ async function run() {
 
 
 
-
         ///get all the classes info
         app.get('/classes', async (req, res) => {
             const query = {}
@@ -127,6 +141,28 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result);
         })
+
+
+
+
+        // app.get('/classes', async (req, res) => {
+        //     const result = await classesCollection.find().toArray();
+        //     res.send(result);
+        //   })
+
+          app.post('/classes', verifyJWT,verifyAdmin, async (req, res) => {
+            const newClass =req.body
+            const result = await classesCollection.insertOne(newClass);
+            res.send(result);
+          })
+
+          app.delete('/classes/:id',verifyJWT,verifyAdmin, async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await classesCollection.deleteOne(query);
+            res.send(result);
+          })
+
 
         //get instructor info
         app.get('/instructor', async (req, res) => {
@@ -170,6 +206,54 @@ async function run() {
             const result = await cartCollection.deleteOne(query);
             res.send(result);
           })
+
+  //  payment intent
+  app.post('/create-payment', verifyJWT, async (req, res) => {
+    const { price } = req.body;
+    const amount = parseInt(price * 100);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: 'usd',
+      payment_method_types: ['card']
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret
+    })
+  })
+
+  // payment
+
+  app.post('/payments', verifyJWT, async (req, res) => {
+    const payment = req.body;
+    const insertResult = await paymentCollection.insertOne(payment);
+
+    const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+    const deleteResult = await cartCollection.deleteMany(query)
+
+    res.send({ insertResult, deleteResult });
+  })
+
+
+
+  app.get('/admin-stats', verifyJWT, verifyAdmin, async (req, res) => {
+    const users = await usersCollection.estimatedDocumentCount();
+    const selectClass = await cartCollection.estimatedDocumentCount();
+    const paymentCls = await paymentCollection.estimatedDocumentCount();
+    const payments = await paymentCollection.find().toArray();
+    const revenue = payments.reduce( ( sum, payment) => sum + payment.price, 0)
+
+    res.send({
+      revenue,
+      users,
+      selectClass,
+      paymentCls
+    })
+  })
+
+
+
+
 
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
